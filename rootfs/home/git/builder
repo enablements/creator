@@ -1,0 +1,96 @@
+#!/bin/bash
+
+# debug if DEBUG env is set
+if [ ! -z ${DEBUG:+x} ]; then
+    set -x
+    env
+fi
+
+set -eo pipefail
+
+ARGS=3
+
+indent() {
+    echo "       $@"
+}
+
+puts-step() {
+    echo "-----> $@"
+}
+
+puts-step-sameline() {
+    echo -n "-----> $@"
+}
+
+puts-warn() {
+    echo " !     $@"
+}
+
+usage() {
+    echo "Usage: $0 <user> <repo> <sha>"
+}
+
+parse-string(){
+    # helper to avoid the single quote escape
+    # occurred in command substitution
+    local args=() idx=0 IFS=' ' c
+    for c; do printf -v args[idx++] '%s ' "$c"; done
+    printf "%s\n" "${args[*]}"
+}
+
+puts_red_f() {
+  while read data; do
+    echo $'\033[0;31m'"      $data" $'\033[0m'
+  done
+}
+
+puts_green() {
+  echo $'\033[0;32m'"      $@" $'\033[0m'
+}
+
+ex() {
+    last_status=$?
+    if [ "$last_status" != "0" ]; then
+        if [ -f "process.log" ]; then
+          cat process.log|puts_red_f
+        fi
+        exit 1;
+    else
+        puts_green "Push success"
+        exit 0;
+    fi
+}
+
+faketty () {
+    script -qfc "$(printf "%q " "$@")" ;
+}
+
+trap ex HUP INT TERM QUIT ABRT EXIT
+
+
+if [ $# -ne $ARGS ]; then
+    usage
+    exit 1
+fi
+
+CODEBASE="/gitrepo"
+
+USER=$1
+REPO=$2
+GIT_SHA=$3
+SHORT_SHA=${GIT_SHA:0:8}
+APP_NAME="${REPO%.*}"
+echo
+puts-step "Create Build"
+
+docker ps
+BUILD_DIR="${REPO}/build"
+CURRENT_BUILD_DIR="/tmp/${REPO}/build/$(uuidgen)"
+mkdir -p "$CURRENT_BUILD_DIR"
+pwd
+
+git archive --format=tar.gz $GIT_SHA -o $CURRENT_BUILD_DIR/codebase.tar.gz
+git archive --format=tar --prefix=codebase/ HEAD | (cd $CURRENT_BUILD_DIR && tar xf -)
+faketty docker-compose -f /stacks/java-jersey/build.yml up --abort-on-container-exit
+
+faketty docker-compose -f /stacks/java-jersey/verify.yml up --abort-on-container-exit

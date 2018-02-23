@@ -1,0 +1,71 @@
+version: '3.4'
+services:
+  app:
+    image: hub.deepi.cn/jersey-mysql-verify
+    depends_on:
+      - api
+    volumes:
+      - "/tmp/cache:/root/.gradle"
+      - "/tmp/artifacts:/artifacts"
+      - "/tmp/codebase:/codebase"
+    environment:
+      DB_PASSWORD: "mysql"
+      DB_USERNAME: "mysql"
+      DB_DATABASE: "datastore"
+      RUNNABLE: "{{runnable}}"
+      ENDPOINT_HOST: "{{runtime api.host}}"
+      ENDPOINT_PORT: "{{runtime api.port 0}}"
+    environment:
+      DUMMY: "dummy"
+    healthcheck:
+      test: ["CMD", "echo", "test"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  api:
+    image: hello-world
+    depends_on:
+      - db
+      - redis
+  db:
+    image: mysql:5.7.17
+    ports:
+      - 3316:3306
+    environment:
+      MYSQL_USER: "mysql"
+      MYSQL_PASSWORD: "mysql"
+      MYSQL_ROOT_PASSWORD: "mysql"
+      MYSQL_DATABASE: "datastore"
+    healthcheck:
+      test: ["CMD", "echo", "test"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - /tmp/datastore:/var/lib/mysql
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+    volumes:
+      - /tmp/redis:/data
+    environment:
+      DUMMY: "dummy"
+    healthcheck:
+      test: ["CMD", "echo", "test"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  mock:
+    image: nginx
+    ports:
+      - 80
+    healthcheck:
+      test: ["CMD", "echo", "test"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

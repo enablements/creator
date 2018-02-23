@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -x
+set -eo pipefail
+env
+
+if [ $(git rev-parse --is-bare-repository) = true ]
+then
+    REPOSITORY=$(basename "$PWD")
+else
+    REPOSITORY=$(basename $(readlink -nf "$PWD"/..))
+fi
+
+while read oldrev newrev refname
+do
+  LOCKER="/tmp/$REPOSITORY.lock"
+  if ( set -o noclobber; echo "$$" > "$LOCKER" ) 2> /dev/null; then
+	trap 'rm -f "$LOCKER"; exit 1' INT TERM EXIT
+
+	# check for authorization on this repo
+
+    timeout -s9 -k1 3600 /home/git/builder $REMOTE_USER $REPOSITORY "$newrev" 2>&1 | stdbuf -i0 -o0 -e0 sed "s/^/"$'\e[1G'"/"
+
+	rm -f "$LOCKER"
+	trap - INT TERM EXIT
+  else
+	echo "Another git push is ongoing. Aborting..."
+	exit 1
+  fi
+done
