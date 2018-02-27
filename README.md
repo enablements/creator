@@ -1,4 +1,19 @@
 # Git server for build
+### set up
+###### 1. build the build image  
+
+```
+cd creator/rootfs/stacks/java-jersey/build
+docker build -t java-jersey-build .
+```
+
+###### 2. build the verify image
+```
+cd creator/rootfs/stacks/java-jersey/verify
+docker build -t java-jersey-verify .
+```
+
+
 ### start up
 ```
 docker build -t creator .
